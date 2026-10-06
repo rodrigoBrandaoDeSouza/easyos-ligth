@@ -1,0 +1,17 @@
+{
+  "name": "easyos-light",
+  "version": "0.1.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "setup": "node scripts/setup.js",
+    "start": "expo start --dev-client",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "typecheck": "tsc --noEmit",
+    "doctor": "npx expo-doctor",
+    "start:go": "expo start",
+    "build:dev": "eas build --profile development",
+    "build:prod": "eas build --profile production"
+  }
+}

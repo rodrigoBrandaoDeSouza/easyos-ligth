@@ -1,0 +1,21 @@
+{
+  "expo": {
+    "name": "EasyOS Light",
+    "slug": "easyos-light",
+    "scheme": "easyoslight",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "bundleIdentifier": "br.com.easyoslight.app",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "br.com.easyoslight.app"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-sqlite"
+    ]
+  }
+}
