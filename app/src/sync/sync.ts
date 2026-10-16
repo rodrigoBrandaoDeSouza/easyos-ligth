@@ -123,10 +123,25 @@ async function receber(): Promise<void> {
   const { data, error } = await supabase.rpc('sync_pull', { p_desde: desde });
   if (error) throw new Error(`Falha ao receber: ${error.message}`);
 
-  const resposta = data as { servidor_em: string; alteracoes: Record<string, Row[]> };
+  const resposta = data as {
+    servidor_em: string;
+    alteracoes: Record<string, Row[]>;
+    /** OS que saíram do alcance do usuário (ex.: reatribuídas a outro técnico) */
+    removidas?: { ordens_servico?: string[] };
+  };
   let houveMudanca = false;
+  const osRemovidas = resposta.removidas?.ordens_servico ?? [];
 
   await db().withTransactionAsync(async () => {
+    // apaga inclusive o que estiver pendente: o servidor recusaria o envio
+    // (a OS não é mais deste usuário) e isso travaria a sincronização
+    for (const id of osRemovidas) {
+      const r1 = await db().runAsync('delete from os_pragas where os_id = ?', [id]);
+      const r2 = await db().runAsync('delete from os_produtos where os_id = ?', [id]);
+      const r3 = await db().runAsync('delete from ordens_servico where id = ?', [id]);
+      if (r1.changes + r2.changes + r3.changes > 0) houveMudanca = true;
+    }
+
     for (const tabela of Object.keys(TABELAS) as NomeTabela[]) {
       const linhas = resposta.alteracoes[tabela] ?? [];
       if (!linhas.length) continue;

@@ -15,7 +15,18 @@
     },
     "plugins": [
       "expo-router",
-      "expo-sqlite"
-    ]
+      "expo-sqlite",
+      "expo-status-bar",
+      "expo-sharing",
+      "@react-native-community/datetimepicker",
+      "expo-font"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "b48970e1-63bf-458e-8588-ae45f88ec92e"
+      }
+    },
+    "owner": "rodrigobrandao"
   }
 }

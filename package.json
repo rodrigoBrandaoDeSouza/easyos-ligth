@@ -1,0 +1,11 @@
+{
+  "name": "easyos-light",
+  "private": true,
+  "scripts": {
+    "db:push": "supabase db push",
+    "db:testes": "bash supabase/tests/rodar.sh"
+  },
+  "devDependencies": {
+    "supabase": "^2.121.0"
+  }
+}

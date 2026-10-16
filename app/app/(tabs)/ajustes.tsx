@@ -14,7 +14,7 @@ import { cores } from '@/lib/theme';
 
 const PAPEIS: Record<string, string> = { admin: 'Administrador', atendente: 'Atendente', tecnico: 'Técnico' };
 
-function Item({ icone, titulo, detalhe, onPress }: { icone: string; titulo: string; detalhe?: string; onPress: () => void }) {
+function Item({ icone, titulo, detalhe, onPress }: { icone: React.ComponentProps<typeof Ionicons>['name']; titulo: string; detalhe?: string; onPress: () => void }) {
   return (
     <Pressable onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderTopWidth: 1, borderColor: cores.borda }}>
       <Ionicons name={icone} size={22} color={cores.primaria} style={{ marginRight: 12 }} />

@@ -4,8 +4,9 @@ App de ordens de serviço para **empresas de controle de pragas**, vendido como
 **assinatura nas lojas** (SaaS multi-empresa). Funciona **offline** e sincroniza quando
 a internet volta. Idioma do produto, do código de domínio e dos commits: **português (pt-BR)**.
 
-Leia também: `docs/arquitetura.md` (visão completa), `docs/decisoes.md` (por que as
-coisas são como são) e `docs/roadmap.md` (o que vem a seguir).
+Leia também, em `.doc/`: `arquitetura.md` (visão completa, sync, segurança),
+`dominios.md` (entidades e regras de negócio), `funcionalidades.md` (telas, papéis e o
+que ainda falta) e `decisoes.md` (por que as coisas são como são).
 
 ## Stack
 
@@ -20,7 +21,7 @@ coisas são como são) e `docs/roadmap.md` (o que vem a seguir).
 ## Estrutura
 
 ```
-apps/mobile/            app Expo
+app/                    app Expo
   app/                  telas (rotas do expo-router)
   src/db/               schema local, acesso ao SQLite, consultas (repos.ts)
   src/sync/             motor de sincronização
@@ -30,24 +31,32 @@ apps/mobile/            app Expo
   src/certificado/      HTML/PDF do certificado
   src/components/       componentes de UI compartilhados (ui.tsx)
   src/lib/              supabase, formatação, tema, uuid
-apps/web/               painel do escritório (ainda não existe)
 supabase/migrations/    SQL versionado
 supabase/functions/     revenuecat-webhook, verificar-assinatura, excluir-conta
-supabase/tests/         cenários SQL de isolamento e assinatura
-docs/                   arquitetura, decisões, roadmap, publicação
+supabase/tests/         cenários SQL de isolamento (rodar.sh sobe um Postgres no Docker)
+.doc/                   arquitetura, domínios, funcionalidades, decisões
 ```
 
 ## Comandos
 
 ```bash
-# dentro de apps/mobile
+# dentro de app/
 npm run setup        # instala Expo e dependências nas versões compatíveis (1ª vez)
 npm run typecheck    # tsc --noEmit — rodar antes de dar uma tarefa por concluída
+npx expo-doctor      # confere dependências e plugins nativos
 npm run build:dev    # development build (necessário para testar compras)
 npm start            # abre no development build
 npm run start:go     # Expo Go (tudo menos compras)
+eas build -p android --profile preview         # APK na nuvem (variáveis vêm do EAS, não do .env)
 
-# na raiz
+# APK local: Android SDK + JDK 17 do Android Studio; android/ é gerada e fica fora do git
+npx expo prebuild -p android                   # só quando mudar app.json ou lib nativa
+cd android && ./gradlew.bat assembleRelease    # → android/app/build/outputs/apk/release/
+
+# na raiz (Supabase CLI é devDependency do package.json da raiz; projeto já linkado)
+bash supabase/tests/rodar.sh                           # migrations + testes SQL (precisa do Docker)
+npx supabase migration list                            # compara migrations locais x Supabase
+npx supabase db push --dry-run                         # mostra o que seria aplicado
 npx supabase db push                                   # aplica migrations
 npx supabase functions deploy <nome>                   # revenuecat-webhook usa --no-verify-jwt
 ```
@@ -83,13 +92,25 @@ compatível com o SDK), nunca `npm install <pacote>` direto.
 - Tabela nova que o app envia: adicionar em `TABELAS_ENVIO` (app) **e** em `v_tabelas`
   de `sync_push` (SQL), respeitando a ordem das chaves estrangeiras.
 - Conflito: a última gravação vence. Não introduzir outra estratégia sem registrar em
-  `docs/decisoes.md`.
+  `.doc/decisoes.md`.
+- O pull só devolve o que o RLS deixa ver. Quando algo pode **sair** do alcance do
+  usuário (ex.: OS reatribuída), o servidor avisa em `removidas` (`sync_pull`) e o app
+  apaga localmente; itens filhos precisam ganhar `updated_at` novo para chegar a quem
+  passou a ter acesso (ver `20261016120000_os_reatribuida.sql`).
 
 ### Migrations
 - Depois do primeiro deploy em produção: **nunca editar** uma migration já aplicada;
   toda mudança é um arquivo novo `AAAAMMDDHHMMSS_descricao.sql`.
 - Toda mudança em RLS, triggers ou RPCs de sync precisa de um cenário em
   `supabase/tests/` provando que uma empresa não lê nem grava dados de outra.
+  Cenários são arquivos `NN_descricao.sql` usando `teste.como(usuario)` e
+  `teste.confere(condição, mensagem)` (definidos em `00_ambiente_supabase.sql`).
+- Ao mudar uma RPC existente (`create or replace`), copiar a função inteira da última
+  versão para a migration nova.
+- Nunca alterar o banco direto pelo painel do Supabase: tudo passa por migration no
+  repositório (a `20261006000005` foi aplicada direto e teve de ser recuperada).
+- Extensões ficam no schema `extensions` (padrão do Supabase): chamar com o schema
+  completo, ex.: `extensions.gen_random_bytes`.
 
 ### Assinatura
 - A assinatura é da **empresa**: o App User ID no RevenueCat é o `empresas.id`.
@@ -129,19 +150,26 @@ a própria empresa (`criar_empresa`). Técnicos entram com código de convite
 
 ## Como trabalhar neste repositório
 
-- Antes de mudar o modelo de dados ou a sync, ler `docs/arquitetura.md`.
+- Antes de mudar o modelo de dados ou a sync, ler `.doc/arquitetura.md`.
 - Mudança que afete banco **e** app vai no mesmo commit.
 - Decisão de produto ou de arquitetura tomada numa conversa → uma linha em
-  `docs/decisoes.md` (data, decisão, motivo).
-- Ao terminar: rodar `npm run typecheck` e os testes SQL, e dizer com clareza o que
-  foi testado e o que não foi (ex.: "não rodou em aparelho").
+  `.doc/decisoes.md` (data, decisão, motivo).
+- Mudou tela, regra de negócio ou arquitetura → atualizar o arquivo correspondente
+  em `.doc/`.
+- Ao terminar: rodar `npm run typecheck` e `bash supabase/tests/rodar.sh`, e dizer com
+  clareza o que foi testado e o que não foi (ex.: "não rodou em aparelho").
+- Migration nova **não** é aplicada sozinha no Supabase de produção: avisar o usuário
+  para rodar `npx supabase db push`. O app deve tolerar o servidor ainda sem ela.
+- Converse com o usuário em português (pt-BR).
 - O certificado segue a RDC 622/2022 da ANVISA; qualquer mudança nos campos dele deve
   ser sinalizada para conferência com um responsável técnico.
 
 ## Estado atual (atualizar a cada rodada)
 
-- Banco: schema multi-empresa, RLS, sync e onboarding testados em Postgres local.
-- App: passou na checagem de tipos; **ainda não rodou em aparelho**.
+- Banco: todas as migrations (até `20261016120000_os_reatribuida`) aplicadas no
+  Supabase (`jpxypwupleureeynqodi`) e testadas em Postgres local.
+- App: passa no typecheck e no expo-doctor; APK de teste gerado (EAS e local);
+  **ainda não validado em aparelho**. Projeto EAS: `@rodrigobrandao/easyos-light`.
 - Edge Functions: escritas, **não testadas** contra o RevenueCat real.
-- Lojas e RevenueCat: ainda não configurados.
+- Lojas e RevenueCat: ainda não configurados (compras não funcionam).
 - Faltando: recuperação de senha, fotos do atendimento, GPS, painel web.
